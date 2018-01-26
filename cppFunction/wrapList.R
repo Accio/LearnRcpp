@@ -39,6 +39,48 @@ cppFunction(
 )
 wrapListRes2 <- wrapListPreAlloc()
 
+## use vector instead of set: at the last step the duplicated values are deleted by sort->unique->erase. This step can be alternatively performed by std::set
+## see [StackOverflow discussions](https://stackoverflow.com/questions/1041620/whats-the-most-efficient-way-to-erase-duplicates-and-sort-a-vector)
+cppFunction(
+  'Rcpp::List wrapListVec(int len=1000, int size=500) {
+  std::list< std::vector<int> > myList(len);
+  
+  for(std::list< std::vector<int> >::iterator it=myList.begin(); it!=myList.end(); ++it) {
+    std::vector<int> vec;
+    for(int j=0; j<size; ++j) {
+      vec.push_back(j % (size-1));
+    }
+    std::sort( vec.begin(), vec.end() );
+    vec.erase( std::unique( vec.begin(), vec.end() ), vec.end() );
+    *it = vec;
+  }
+  
+  // note the magic Rcpp::wrap
+  return Rcpp::wrap(myList);
+  }'
+)
+wrapListResVec <- wrapListVec()
+
+## use vector to store the elements, and then convert to set in order to make the elements unique. This is however much slower
+cppFunction(
+  'Rcpp::List wrapListVecSet(int len=1000, int size=500) {
+  std::list< std::set<int> > myList(len);
+  
+  for(std::list< std::set<int> >::iterator it=myList.begin(); it!=myList.end(); ++it) {
+    std::vector<int> vec;
+    for(int j=0; j<size; ++j) {
+      vec.push_back(j % (size-1));
+    }
+    std::set<int> s(vec.begin(), vec.end());
+    *it = s;
+  }
+  
+  // note the magic Rcpp::wrap
+  return Rcpp::wrap(myList);
+  }'
+)
+wrapListResVecSet <- wrapListVec()
+
 wrapListR <- function(len=1000, size=500) {
   lapply(1:len, function(x) {
     unique(seq(0, size) %% (size-1))
@@ -47,11 +89,16 @@ wrapListR <- function(len=1000, size=500) {
 wrapListResR <- wrapListR()
 expect_identical(wrapListRes, wrapListRes2)
 expect_equivalent(wrapListRes, wrapListResR)
+expect_equivalent(wrapListRes, wrapListResVec)
+expect_equivalent(wrapListRes, wrapListResVecSet)
 
-## actually for this task, R is even faster than C++ implementations
+## actually for this task, R is even faster than bad C++ implementations (which uses set to insert)
 ## therefore the old wisedom - do not pre-optimise
+## however, a better C++ implementation (using vector to hold the values and then delete duplicates) is 2+ times faster
 benchmark(wrapList=wrapList(),
           wrapListPreAlloc=wrapListPreAlloc(),
+          wrapListVec=wrapListVec(),
+          wrapListVecSet=wrapListVecSet(),
           wrapListR=wrapListR())
 
 ## note how better it is to use wrap than not
