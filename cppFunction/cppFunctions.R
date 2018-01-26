@@ -1,4 +1,6 @@
 library(Rcpp)
+library(testthat)
+library(rbenchmark)
 
 ## the simplest variant using evalCpp
 evalCpp("2+2", verbose=TRUE)
@@ -79,25 +81,54 @@ mySet()
 
 ## nested iteration of list
 cppFunction(
-  'Rcpp::List nestIter() {
+  'Rcpp::List wrapList(int len=1000, int size=500) {
      std::list< std::set<int> > myList;
 
-     std::set<int> set1;
-     set1.insert(1);
-     set1.insert(2);
-     set1.insert(3);
-    
-     std::set<int> set2;
-     set2.insert(3);
-     set2.insert(5);
-     set2.insert(3);
-
-     myList.push_back(set1);
-     myList.push_back(set2);
+     for(int i=0; i<len; ++i) {
+       std::set<int> set;
+       for(int j=0; j<size; ++j) {
+         set.insert(j % (size-1));
+       }
+       myList.push_back(set);
+     }
 
      // note the magic Rcpp::wrap
      return Rcpp::wrap(myList);
   }'
 )
 
-nestIter()
+wrapListRes <- wrapList()
+
+## note how better it is to use wrap
+cppFunction(
+  'Rcpp::List wrapList_bad(int len=1000, int size=500) {
+     std::list< std::set<int> > myList;
+
+     for(int i=0; i<len; ++i) {
+       std::set<int> set;
+       for(int j=0; j<size; ++j) {
+         set.insert(j % (size-1));
+       }
+       myList.push_back(set);
+     }
+
+
+     // note that the part below re-do the magic Rcpp::wrap
+     Rcpp::List res;
+     for(std::list< std::set<int> >::iterator lit=myList.begin();lit != myList.end(); ++lit) {
+       Rcpp::IntegerVector cv;
+       std::set<int> currSet = *lit;
+       for(std::set<int>::iterator it=currSet.begin(); it!=currSet.end(); ++it) {
+          cv.push_back(*it);
+       }
+       res.push_back(cv);
+     }
+     return(res);
+  }'
+)
+wrapListRes <- wrapList_bad()
+
+expect_identical(wrapList(), wrapList_bad())
+
+benchmark(wrapList=wrapList(),
+          wrapList_bad=wrapList_bad())
