@@ -131,9 +131,9 @@ cppFunction(
      return(res);
   }'
 )
-wrapListRes <- wrapList_bad()
+wrapListBadRes <- wrapList_bad()
 
 expect_identical(wrapList(), wrapList_bad())
 
-benchmark(wrapList=wrapList(),
+benchmark(wrapList=wrapListVec(),
           wrapList_bad=wrapList_bad())
