@@ -100,6 +100,9 @@ cppFunction(
 wrapListRes <- wrapList()
 
 ## note how better it is to use wrap
+## It is very bad to use .push_back on any Rcpp objects, becuase in this way you will end up copying to and from the ever expanding object as Rcpp data types hide the R object that must be recreated
+## see an answer on [StackOverflow](https://stackoverflow.com/questions/37502121/handling-list-in-rcpp?rq=1)
+
 cppFunction(
   'Rcpp::List wrapList_bad(int len=1000, int size=500) {
      std::list< std::set<int> > myList;
