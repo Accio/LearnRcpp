@@ -99,6 +99,39 @@ cppFunction(
 
 wrapListRes <- wrapList()
 
+cppFunction(
+  'Rcpp::List wrapListPreAlloc(int len=1000, int size=500) {
+     std::list< std::set<int> > myList(len);
+
+     for(std::list< std::set<int> >::iterator it=myList.begin(); it!=myList.end(); ++it) {
+       std::set<int> set;
+       for(int j=0; j<size; ++j) {
+         set.insert(j % (size-1));
+       }
+       *it = set;
+     }
+
+     // note the magic Rcpp::wrap
+     return Rcpp::wrap(myList);
+  }'
+)
+wrapListRes2 <- wrapListPreAlloc()
+ 
+wrapListR <- function(len=1000, size=500) {
+  lapply(1:len, function(x) {
+    unique(seq(0, size) %% (size-1))
+  })
+}
+wrapListResR <- wrapListR()
+expect_identical(wrapListRes, wrapListRes2)
+expect_equivalent(wrapListRes, wrapListResR)
+
+## actually for this task, R is even faster than C++ implementations
+## therefore the old wisedom - do not pre-optimise
+benchmark(wrapList=wrapList(),
+          wrapListPreAlloc=wrapListPreAlloc(),
+          wrapListR=wrapListR())
+
 ## note how better it is to use wrap
 ## It is very bad to use .push_back on any Rcpp objects, becuase in this way you will end up copying to and from the ever expanding object as Rcpp data types hide the R object that must be recreated
 ## see an answer on [StackOverflow](https://stackoverflow.com/questions/37502121/handling-list-in-rcpp?rq=1)
